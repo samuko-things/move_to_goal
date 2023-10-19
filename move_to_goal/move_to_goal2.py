@@ -208,7 +208,7 @@ class MoveToGoal(Node):
     # rotate and translate controller parameters ########################
     self.Kp_rho = 9.0
     self.Kp_alpha = 15.0
-    self.Kp_beta = -3.0
+    self.Kp_beta = 3.0
 
     self.v_max = 0.2
     self.v_min = -0.2
@@ -333,7 +333,7 @@ class MoveToGoal(Node):
       beta = (theta_pose - theta - alpha + np.pi) % (2 * np.pi) - np.pi
 
       v = self.Kp_rho * rho
-      w = self.Kp_alpha * alpha + self.Kp_beta * beta
+      w = self.Kp_alpha * alpha + (-1*self.Kp_beta) * beta
 
 
       if alpha > np.pi / 2 or alpha < -np.pi / 2:
@@ -381,7 +381,7 @@ class MoveToGoal(Node):
 
       beta = (theta_goal - theta + np.pi) % (2 * np.pi) - np.pi
 
-      w = -1*self.Kp_beta * beta
+      w = self.Kp_beta * beta
 
       if(w>self.w_max):
           w = self.w_max
@@ -401,17 +401,13 @@ class MoveToGoal(Node):
 
   def move_to_goal(self, goal_pose_array, theta_goal):
     skip = True
-   
     for pose in goal_pose_array:    
       if skip:
          skip = False
       else:
         msg = f"CurrPose = [x:{round(self.posX,3)},  y:{round(self.posY,3)}, theta:{round(self.theta,3)}]"
         print(msg)
-
       theta_track = np.arctan2(pose[1]-self.posY, pose[0]-self.posX)
-      print(rad_2_deg(theta_track))
-
       self.move_to_pose(x_pose=pose[0], y_pose=pose[1], theta_pose=theta_track, 
                         angle_error_rad=deg_to_rad(10), dist_error_m=0.05)
 
