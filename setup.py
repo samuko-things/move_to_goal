@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             # 'executable_name = package_name.python_file_name:main'
             'move_to_goal = move_to_goal.move_to_goal:main',
+            'move_to_goal2 = move_to_goal.move_to_goal2:main',
             'stop_motion = move_to_goal.stop_motion:main',
             'send_pose_cmd = move_to_goal.send_pose_cmd:main',
         ],
