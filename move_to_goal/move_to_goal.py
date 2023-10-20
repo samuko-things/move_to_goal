@@ -138,6 +138,9 @@ class MoveToGoal(Node):
     self.theta = 0.0
     self.theta_inc_deg = 0.0
 
+    self.v = 0.000
+    self.w = 0.000
+
 
     self.pub_cmd = self.create_publisher(
       Twist, 
@@ -149,8 +152,8 @@ class MoveToGoal(Node):
 
     self.sub_to_odom = self.create_subscription(
       Odometry, 
-      '/odometry/filtered',
-      # '/odom', 
+      # '/odometry/filtered',
+      '/odom', 
       # '/diff_drive_controller/odom', 
       self.read_odometry, 
       10)
@@ -181,8 +184,8 @@ class MoveToGoal(Node):
     self.listen_for_stop_cmd # prevent unused variable warning
 
 
-    # timer_period = 0.1  # seconds
-    # self.timer = self.create_timer(timer_period, self.timer_callback)
+    timer_period = 0.02  # seconds
+    self.timer = self.create_timer(timer_period, self.timer_callback)
 
 
     self.old_theta_deg = rad_2_deg(self.theta)
@@ -203,14 +206,14 @@ class MoveToGoal(Node):
 
 
     # rotate and translate controller parameters ########################
-    self.Kp_rho = 3.0
-    self.Kp_alpha = 9.0
+    self.Kp_rho = 2.0
+    self.Kp_alpha = 8.0
 
-    self.v_max = 0.3
-    self.v_min = -0.3
+    self.v_max = 0.2
+    self.v_min = -0.2
     
 
-    self.Kp_beta = 5.0
+    self.Kp_beta = 2.0
 
     self.w_max = 1.0
     self.w_min = -1.0
@@ -264,7 +267,7 @@ class MoveToGoal(Node):
     
     self.accumulate_theta_deg()
 
-    print(self.posX, self.posY, self.theta)
+    # print(self.posX, self.posY, self.theta)
 
 
 
@@ -293,8 +296,9 @@ class MoveToGoal(Node):
    
 
   
-  # def timer_callback(self):
-  #   self.get_logger().info('posX: "%f", posY: "%f"\ntheta: "%f", theta_inc: "%f"' % (self.posX, self.posY, self.theta, self.theta_inc_deg))
+  def timer_callback(self):
+    self.send_cmd(self.v, self.w)
+    # self.get_logger().info('posX: "%f", posY: "%f"\ntheta: "%f", theta_inc: "%f"' % (self.posX, self.posY, self.theta, self.theta_inc_deg))
 
 
   
@@ -311,7 +315,8 @@ class MoveToGoal(Node):
 
     while True:
       if (abs(beta) <= accuracy) or self.stop_cmd_is_available:
-          self.send_cmd(0.0, 0.0)
+          self.v = 0.000
+          self.w = 0.000
           break
 
       beta = (theta_goal - theta + np.pi) % (2 * np.pi) - np.pi
@@ -326,7 +331,8 @@ class MoveToGoal(Node):
       # msg = f"[beta:{round(rad_2_deg(beta),3)}, w:{round(w,3)}, theta_diff:{rad_2_deg(theta_goal - theta)}]"
       # print(msg)
 
-      self.send_cmd(0.0, w)
+      self.v = 0.000
+      self.w = w
 
       # theta = self.theta
       theta = deg_to_rad(self.theta_inc_deg)
@@ -356,7 +362,8 @@ class MoveToGoal(Node):
 
     while True:
       if abs(rho) <= accuracy or self.stop_cmd_is_available:
-        self.send_cmd(0.0,0.0)
+        self.v = 0.000
+        self.w = 0.000
         break
 
       x_diff = x_goal - x
@@ -369,7 +376,7 @@ class MoveToGoal(Node):
       w = self.Kp_alpha * alpha 
 
       if alpha > np.pi / 2 or alpha < -np.pi / 2:
-          v = -v
+          v = 0
 
       if(v>self.v_max):
           v = self.v_max
@@ -384,7 +391,8 @@ class MoveToGoal(Node):
       # msg = f"[rho:{round(rho,3)},  x:{round(x,3)}, y:{round(y,3)}, theta:{round(rad_2_deg(theta),3)}]"
       # print(msg)
 
-      self.send_cmd(v,w)
+      self.v = v
+      self.w = w
 
       x = self.posX
       y = self.posY
@@ -407,17 +415,20 @@ class MoveToGoal(Node):
 
       theta_track = np.arctan2(pose[1]-self.posY, pose[0]-self.posX)
       self.rotate(theta_goal=theta_track, accuracy=deg_to_rad(10))
-      self.translate(x_goal=pose[0], y_goal=pose[1], accuracy=0.01)
+      self.translate(x_goal=pose[0], y_goal=pose[1], accuracy=0.05)
 
     
-    self.rotate(theta_goal=theta_goal, accuracy=deg_to_rad(1))
+    self.rotate(theta_goal=theta_goal, accuracy=deg_to_rad(2))
 
     if self.stop_cmd_is_available:
-      self.send_cmd(0.0,0.0)
+      self.v = 0.000
+      self.w = 0.000
       self.stop_cmd_is_available = False
       print("ERROR: Motion Stopped. Goal not Found !!!")
     
     else:
+      self.v = 0.000
+      self.w = 0.000
       msg = f"GoalPose = [x:{round(self.posX,3)},  y:{round(self.posY,3)}, theta:{round(self.theta,3)}]"
       print(msg)
       print("SUCCESS: Goal Found !!!")
@@ -432,10 +443,11 @@ class MoveToGoal(Node):
 ############### RUN IN THREAD ####################################################
   def execute_action(self):
     time.sleep(2.0)
-    pass
-    # goal_pose_array = [(1.5,0), (2,2), (1.5,4), (0,4), (0,0)]
-    # theta_goal = deg_to_rad(0)
-    # self.move_to_goal(goal_pose_array=goal_pose_array, theta_goal=theta_goal)
+    # pass
+    goal_pose_array = [(1.5,0), (2,2), (1.5,4), (0,4), (0,0)]
+    # goal_pose_array = [(-1.5,1), (1, -1.5), (0,0)]
+    theta_goal = deg_to_rad(0)
+    self.move_to_goal(goal_pose_array=goal_pose_array, theta_goal=theta_goal)
 
 
 
