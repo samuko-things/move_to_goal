@@ -144,8 +144,8 @@ class MoveToGoal(Node):
 
     self.pub_cmd = self.create_publisher(
       Twist, 
-      '/cmd_vel', 
-      # '/diff_drive_controller/cmd_vel_unstamped',
+      # '/cmd_vel', 
+      '/diff_drive_controller/cmd_vel_unstamped',
       10)
     self.pub_cmd # prevent unused variable warning
 
@@ -153,8 +153,8 @@ class MoveToGoal(Node):
     self.sub_to_odom = self.create_subscription(
       Odometry, 
       # '/odometry/filtered',
-      '/odom', 
-      # '/diff_drive_controller/odom', 
+      # '/odom', 
+      '/diff_drive_controller/odom', 
       self.read_odometry, 
       10)
     self.sub_to_odom # prevent unused variable warning
@@ -207,16 +207,18 @@ class MoveToGoal(Node):
 
     # rotate and translate controller parameters ########################
     self.Kp_rho = 2.0
-    self.Kp_alpha = 8.0
+    self.Kp_alpha = 3.0
 
-    self.v_max = 0.2
-    self.v_min = -0.2
+    self.Kp_gamma = 45.0
+
+    self.v_max = 0.07
+    self.v_min = -0.07
     
 
-    self.Kp_beta = 2.0
+    self.Kp_beta = 3.0
 
-    self.w_max = 1.0
-    self.w_min = -1.0
+    self.w_max = 0.6
+    self.w_min = -0.6
     ######################################################################
 
     # create thread to handle actions without interrupting subscriber#####
@@ -341,7 +343,7 @@ class MoveToGoal(Node):
 
 
   
-  def translate(self, x_goal, y_goal, accuracy):
+  def translate(self, x_goal, y_goal, theta_goal, accuracy):
     """
     rho is the distance between the robot and the goal position
     alpha is the angle to the goal relative to the heading of the robot
@@ -349,16 +351,25 @@ class MoveToGoal(Node):
     Kp_rho*rho and Kp_alpha*alpha drive the robot along a line towards the goal
     """
 
-    x = self.posX
-    y = self.posY
+    x_start = self.posX
+    y_start = self.posY
+
+    x = x_start
+    y = y_start
 
     # theta = self.theta
     theta = deg_to_rad(self.theta_inc_deg)
 
-    x_diff = x_goal - x
-    y_diff = y_goal - y
+    x_diff = x_goal - x_start
+    y_diff = y_goal - y_start
 
     rho = np.hypot(x_diff, y_diff)
+    alpha = (np.arctan2(y_diff, x_diff) - theta + np.pi) % (2 * np.pi) - np.pi
+    beta = (theta_goal - theta - alpha + np.pi) % (2 * np.pi) - np.pi
+
+    A = [x_goal - x_start, y_goal - y_start]
+    B = [x - x_start, y - y_start]
+    gamma = ((B[0]*A[1])-(B[1]*A[0]))/np.sqrt((A[0]*A[0])+(A[1]*A[1]))
 
     while True:
       if abs(rho) <= accuracy or self.stop_cmd_is_available:
@@ -369,24 +380,29 @@ class MoveToGoal(Node):
       x_diff = x_goal - x
       y_diff = y_goal - y
 
+      A = [x_goal - x_start, y_goal - y_start]
+      B = [x - x_start, y - y_start]
+      gamma = ((B[0]*A[1])-(B[1]*A[0]))/np.sqrt((A[0]*A[0])+(A[1]*A[1]))
+
       rho = np.hypot(x_diff, y_diff)
       alpha = (np.arctan2(y_diff, x_diff) - theta + np.pi) % (2 * np.pi) - np.pi
+      beta = (theta_goal - theta - alpha + np.pi) % (2 * np.pi) - np.pi
 
+      w = (self.Kp_alpha * alpha) + (self.Kp_gamma * gamma) + (-self.Kp_beta * beta)
       v = self.Kp_rho * rho
-      w = self.Kp_alpha * alpha 
-
-      if alpha > np.pi / 2 or alpha < -np.pi / 2:
-          v = 0
 
       if(v>self.v_max):
           v = self.v_max
-      elif(v<self.v_min):
-          v = self.v_min
-      
+      # elif(v<=0.1):
+      #     v = 0.1
+
       if(w>self.w_max):
           w = self.w_max
       elif(w<self.w_min):
           w = self.w_min
+
+      if alpha > np.pi / 2 or alpha < -np.pi / 2:
+          v = 0.000
 
       # msg = f"[rho:{round(rho,3)},  x:{round(x,3)}, y:{round(y,3)}, theta:{round(rad_2_deg(theta),3)}]"
       # print(msg)
@@ -414,11 +430,11 @@ class MoveToGoal(Node):
         print(msg)
 
       theta_track = np.arctan2(pose[1]-self.posY, pose[0]-self.posX)
-      self.rotate(theta_goal=theta_track, accuracy=deg_to_rad(10))
-      self.translate(x_goal=pose[0], y_goal=pose[1], accuracy=0.05)
+      self.rotate(theta_goal=theta_track, accuracy=deg_to_rad(5))
+      self.translate(x_goal=pose[0], y_goal=pose[1], theta_goal=theta_track, accuracy=0.02)
 
     
-    self.rotate(theta_goal=theta_goal, accuracy=deg_to_rad(2))
+    self.rotate(theta_goal=theta_goal, accuracy=deg_to_rad(1))
 
     if self.stop_cmd_is_available:
       self.v = 0.000
@@ -444,8 +460,9 @@ class MoveToGoal(Node):
   def execute_action(self):
     time.sleep(2.0)
     # pass
-    goal_pose_array = [(1.5,0), (2,2), (1.5,4), (0,4), (0,0)]
-    # goal_pose_array = [(-1.5,1), (1, -1.5), (0,0)]
+    # goal_pose_array = [(1.5,0), (2,2), (1.5,4), (0,3.5), (0,0)]
+    # goal_pose_array = [(2,0), (2,2), (0,2), (0,4), (2,4), (2,6), (0,6), (0,0)]
+    goal_pose_array = [(1,0), (1.5, 1), (0,0)]
     theta_goal = deg_to_rad(0)
     self.move_to_goal(goal_pose_array=goal_pose_array, theta_goal=theta_goal)
 

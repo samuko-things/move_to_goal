@@ -152,8 +152,8 @@ class MoveToGoal(Node):
 
     self.sub_to_odom = self.create_subscription(
       Odometry, 
-      # '/odometry/filtered',
-      '/odom', 
+      '/odometry/filtered',
+      # '/odom', 
       # '/diff_drive_controller/odom', 
       self.read_odometry, 
       10)
@@ -206,12 +206,12 @@ class MoveToGoal(Node):
 
 
     # rotate and translate controller parameters ########################
-    self.Kp_rho = 3.0
+    self.Kp_rho = 2.5
     self.Kp_alpha = 6.0
     self.Kp_beta = 1.5
 
-    self.v_max = 0.15
-    self.v_min = -0.15
+    self.v_max = 0.2
+    self.v_min = -0.2
 
     self.w_max = 1.0
     self.w_min = -1.0
@@ -437,8 +437,11 @@ class MoveToGoal(Node):
   def execute_action(self):
     time.sleep(2.0)
     # pass
+    # goal_pose_array = [(1.5,0), (2,2), (1.5,4), (0,3.5), (0,0)]
+    goal_pose_array = [(1,0), (2,0), (2,1), (2,2), (1,2), (0,2), (0,3), (0,4), (1,4), (2,4), (2,5), (2,6), (1,6), (0,6), 
+                       (0,5), (0,4), (0,3), (0,2), (0,1), (0,0)]
     # goal_pose_array = [(3.0, 0.5), (3.55, 0.9), (3.6, 1.0), (3.6, 1.65), (3.25, 1.95), (3.2, 1.95), (3.1, 2.1), (3.1, 2.3), (3.15, 2.4), (4.5, 2.7), (4.65, 3.9), (0.0, 0.0)]
-    goal_pose_array = [(-1.5,1), (1, -1.5), (0,0)]
+    # goal_pose_array = [(-1.5,1), (1, -1.5), (0,0)]
     theta_goal = deg_to_rad(0)
     self.move_to_goal(goal_pose_array=goal_pose_array, theta_goal=theta_goal)
 
