@@ -211,14 +211,14 @@ class MoveToGoal(Node):
 
     self.Kp_gamma = 45.0
 
-    self.v_max = 0.07
-    self.v_min = -0.07
+    self.v_max = 0.06
+    self.v_min = -0.06
     
 
     self.Kp_beta = 3.0
 
-    self.w_max = 0.6
-    self.w_min = -0.6
+    self.w_max = 0.4
+    self.w_min = -0.4
     ######################################################################
 
     # create thread to handle actions without interrupting subscriber#####
@@ -431,7 +431,9 @@ class MoveToGoal(Node):
 
       theta_track = np.arctan2(pose[1]-self.posY, pose[0]-self.posX)
       self.rotate(theta_goal=theta_track, accuracy=deg_to_rad(5))
+      time.sleep(0.25)
       self.translate(x_goal=pose[0], y_goal=pose[1], theta_goal=theta_track, accuracy=0.02)
+      time.sleep(0.25)
 
     
     self.rotate(theta_goal=theta_goal, accuracy=deg_to_rad(1))
